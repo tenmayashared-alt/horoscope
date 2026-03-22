@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>星占い</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      background: #0a0a1a;
+      color: #e8e0f5;
+      font-family: 'Hiragino Kaku Gothic ProN', 'メイリオ', sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* 星空背景 */
+    #stars {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .star {
+      position: absolute;
+      background: white;
+      border-radius: 50%;
+      animation: twinkle var(--dur) infinite ease-in-out;
+    }
+
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.2; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.4); }
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 40px 20px 60px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    header h1 {
+      font-size: 2.4rem;
+      background: linear-gradient(135deg, #c8a8f8, #f0c8ff, #a8d8ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: 0.1em;
+      margin-bottom: 8px;
+    }
+
+    header p {
+      color: #9988bb;
+      font-size: 0.9rem;
+      letter-spacing: 0.05em;
+    }
+
+    /* 星座選択グリッド */
+    .sign-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+
+    .sign-btn {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(200,168,248,0.2);
+      border-radius: 16px;
+      padding: 14px 8px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.25s;
+      color: #d4c0f0;
+    }
+
+    .sign-btn:hover {
+      background: rgba(200,168,248,0.12);
+      border-color: rgba(200,168,248,0.5);
+      transform: translateY(-2px);
+    }
+
+    .sign-btn.active {
+      background: rgba(200,168,248,0.2);
+      border-color: #c8a8f8;
+      box-shadow: 0 0 16px rgba(200,168,248,0.3);
+      color: #f0e0ff;
+    }
+
+    .sign-btn .symbol {
+      font-size: 1.8rem;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .sign-btn .name {
+      font-size: 0.75rem;
+      display: block;
+    }
+
+    .sign-btn .date-range {
+      font-size: 0.6rem;
+      color: #7766aa;
+      display: block;
+      margin-top: 2px;
+    }
+
+    /* カテゴリ選択 */
+    .category-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+
+    .cat-btn {
+      flex: 1;
+      min-width: 80px;
+      padding: 10px 12px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(168,216,255,0.2);
+      border-radius: 24px;
+      color: #a8c8e8;
+      font-size: 0.85rem;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+
+    .cat-btn:hover {
+      background: rgba(168,216,255,0.1);
+      border-color: rgba(168,216,255,0.5);
+    }
+
+    .cat-btn.active {
+      background: rgba(168,216,255,0.2);
+      border-color: #a8d8ff;
+      color: #d8f0ff;
+      box-shadow: 0 0 12px rgba(168,216,255,0.25);
+    }
+
+    /* 占いボタン */
+    .fortune-btn {
+      display: block;
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, #7044c8, #9060e0);
+      border: none;
+      border-radius: 50px;
+      color: white;
+      font-size: 1.1rem;
+      font-weight: bold;
+      cursor: pointer;
+      letter-spacing: 0.1em;
+      transition: all 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .fortune-btn:hover {
+      background: linear-gradient(135deg, #8054d8, #a070f0);
+      transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(144,96,224,0.4);
+    }
+
+    .fortune-btn:active { transform: translateY(0); }
+
+    .fortune-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* 結果カード */
+    .result-card {
+      margin-top: 32px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(200,168,248,0.25);
+      border-radius: 24px;
+      padding: 32px;
+      display: none;
+      animation: fadeUp 0.5s ease;
+    }
+
+    .result-card.show { display: block; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .result-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid rgba(200,168,248,0.15);
+    }
+
+    .result-symbol {
+      font-size: 3rem;
+      line-height: 1;
+    }
+
+    .result-title h2 {
+      font-size: 1.4rem;
+      color: #e0d0ff;
+      margin-bottom: 4px;
+    }
+
+    .result-title p {
+      font-size: 0.8rem;
+      color: #9988bb;
+    }
+
+    /* ラッキー情報 */
+    .lucky-row {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+
+    .lucky-item {
+      flex: 1;
+      min-width: 90px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 14px;
+      padding: 12px 10px;
+      text-align: center;
+    }
+
+    .lucky-item .label {
+      font-size: 0.65rem;
+      color: #8877aa;
+      margin-bottom: 6px;
+    }
+
+    .lucky-item .value {
+      font-size: 1rem;
+      color: #e8d8ff;
+      font-weight: bold;
+    }
+
+    /* 運勢スコア */
+    .scores {
+      margin-bottom: 24px;
+    }
+
+    .score-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .score-label {
+      width: 70px;
+      font-size: 0.8rem;
+      color: #9988bb;
+      flex-shrink: 0;
+    }
+
+    .score-bar-wrap {
+      flex: 1;
+      background: rgba(255,255,255,0.06);
+      border-radius: 4px;
+      height: 8px;
+      overflow: hidden;
+    }
+
+    .score-bar {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 1s ease;
+    }
+
+    .score-num {
+      width: 28px;
+      font-size: 0.8rem;
+      color: #c8a8f8;
+      text-align: right;
+    }
+
+    /* 本文 */
+    .fortune-text {
+      line-height: 1.9;
+      font-size: 0.95rem;
+      color: #d0c4e8;
+    }
+
+    /* ローディング */
+    .loading {
+      text-align: center;
+      padding: 40px 0;
+      display: none;
+    }
+
+    .loading.show { display: block; }
+
+    .loading-orb {
+      width: 60px;
+      height: 60px;
+      margin: 0 auto 16px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #c8a8f8, #5030a8);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 20px rgba(200,168,248,0.4); }
+      50% { transform: scale(1.15); box-shadow: 0 0 40px rgba(200,168,248,0.7); }
+    }
+
+    .loading p { color: #9988bb; font-size: 0.9rem; }
+
+    @media (max-width: 480px) {
+      .sign-grid { grid-template-columns: repeat(3, 1fr); }
+      header h1 { font-size: 1.8rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="stars"></div>
+
+<div class="container">
+  <header>
+    <h1>✦ 星占い ✦</h1>
+    <p>星が示す、あなたへのメッセージ</p>
+  </header>
+
+  <!-- 星座選択 -->
+  <div class="sign-grid" id="signGrid"></div>
+
+  <!-- カテゴリ -->
+  <div class="category-row" id="categoryRow">
+    <button class="cat-btn active" data-cat="総合">🌟 総合</button>
+    <button class="cat-btn" data-cat="恋愛">💕 恋愛</button>
+    <button class="cat-btn" data-cat="仕事">💼 仕事</button>
+    <button class="cat-btn" data-cat="金運">💰 金運</button>
+    <button class="cat-btn" data-cat="健康">🌿 健康</button>
+  </div>
+
+  <button class="fortune-btn" id="fortuneBtn" onclick="getFortune()">星に問う</button>
+
+  <!-- ローディング -->
+  <div class="loading" id="loading">
+    <div class="loading-orb"></div>
+    <p>星の声を聴いています...</p>
+  </div>
+
+  <!-- 結果 -->
+  <div class="result-card" id="resultCard">
+    <div class="result-header">
+      <div class="result-symbol" id="resSymbol"></div>
+      <div class="result-title">
+        <h2 id="resName"></h2>
+        <p id="resDate"></p>
+      </div>
+    </div>
+    <div class="lucky-row" id="luckyRow"></div>
+    <div class="scores" id="scoresDiv"></div>
+    <div class="fortune-text" id="fortuneText"></div>
+  </div>
+</div>
+
+<script>
+// ========== データ ==========
+const SIGNS = [
+  { name: "牡羊座", symbol: "♈", dates: "3/21〜4/19", element: "火", color: "#ff6b6b" },
+  { name: "牡牛座", symbol: "♉", dates: "4/20〜5/20", element: "土", color: "#c8a85a" },
+  { name: "双子座", symbol: "♊", dates: "5/21〜6/21", element: "風", color: "#88d8a0" },
+  { name: "蟹座",   symbol: "♋", dates: "6/22〜7/22", element: "水", color: "#78b8e8" },
+  { name: "獅子座", symbol: "♌", dates: "7/23〜8/22", element: "火", color: "#f0a030" },
+  { name: "乙女座", symbol: "♍", dates: "8/23〜9/22", element: "土", color: "#98c878" },
+  { name: "天秤座", symbol: "♎", dates: "9/23〜10/23", element: "風", color: "#e8a8d8" },
+  { name: "蠍座",   symbol: "♏", dates: "10/24〜11/21", element: "水", color: "#9060d0" },
+  { name: "射手座", symbol: "♐", dates: "11/22〜12/21", element: "火", color: "#e87840" },
+  { name: "山羊座", symbol: "♑", dates: "12/22〜1/19", element: "土", color: "#708090" },
+  { name: "水瓶座", symbol: "♒", dates: "1/20〜2/18", element: "風", color: "#50b8d8" },
+  { name: "魚座",   symbol: "♓", dates: "2/19〜3/20", element: "水", color: "#8890d8" },
+];
+
+const LUCKY_COLORS = ["赤", "青", "緑", "黄", "紫", "白", "橙", "桃", "金", "銀", "藍", "茶"];
+const LUCKY_ITEMS = ["水晶", "本", "鏡", "花", "石", "香", "鍵", "羽", "貝", "糸", "星", "月"];
+const LUCKY_NUMBERS = [3, 7, 8, 11, 13, 17, 21, 24, 33, 42, 6, 9];
+
+const FORTUNES = {
+  総合: [
+    ["宇宙があなたに微笑んでいます。今日は直感を信じて行動する日。普段とは違うルートを選ぶことで、思いがけない出会いや気づきがあるでしょう。焦らず、星の流れに身を委ねてみてください。", "今日の星配置はあなたの内なる力を引き出します。迷いがあるなら、まず小さな一歩を踏み出して。その勇気が大きな変化の始まりとなるはずです。"],
+    ["天体の動きがあなたの第六感を鋭くしています。今まで気づかなかったことが突然見えてくる日。大切な人からの言葉を丁寧に受け取ってください。", "星の配置は転換期を告げています。過去の経験がここで活きてきます。慎重さと大胆さを使い分けることで、道が開けるでしょう。"],
+    ["木星の恵みがあなたの周囲を包んでいます。今日は積極的に外へ出て、新しい刺激を受け取りましょう。偶然のように見える出来事も、実は運命の糸でつながっています。", "土星の力があなたを安定させています。コツコツ積み上げてきた努力が、少しずつ形になってきました。今は焦らず、確かな歩みを続けることが大切です。"],
+  ],
+  恋愛: [
+    ["金星があなたの魅力を最大限に引き出しています。今日は笑顔を惜しまないで。その輝きが誰かの心を動かすはずです。", "恋の予感が空気に漂っています。気になる人には、さりげなく気持ちを伝えるサインを。言葉よりも行動が心に届く日です。"],
+    ["Venus の光があなたの周りを優しく照らしています。パートナーがいる人は深い対話の時。一人の人は新しい出会いへの扉が開いています。", "今日は感情に素直になることが鍵です。少し勇気を出して本音を言ってみると、関係が一段と深まるでしょう。"],
+    ["月の満ち欠けがあなたの恋心を揺さぶっています。ときめきを素直に表現して。その純粋さこそが最大の武器です。", "恋愛において、今日は「受け取る」ことが大切。相手の好意を素直に受け入れることで、二人の距離が縮まります。"],
+  ],
+  仕事: [
+    ["水星があなたの思考を鋭くしています。今日はアイデアが次々と湧いてくるでしょう。それをすぐにメモしておいて。後で大きな価値を生むかもしれません。", "今日の星は実行力を後押ししています。先延ばしにしていたことに、いよいよ取りかかる時です。最初の一歩さえ踏み出せば、自然と勢いがつきます。"],
+    ["太陽の力があなたのリーダーシップを高めています。チームをまとめる場面で力を発揮できそうです。", "細部への注意が今日のテーマです。丁寧な仕事が信頼を積み重ねます。一つ一つを丁寧に。"],
+    ["新しい挑戦への星が輝いています。少し大きめの目標に手を伸ばしてみましょう。失敗を恐れず、学びとして受け取る姿勢が成長を加速させます。", "今日は人とのつながりが仕事を動かします。上司や同僚とのコミュニケーションを大切に。一言の感謝が大きな協力を生むでしょう。"],
+  ],
+  金運: [
+    ["幸運の星が財布の紐を緩めてくれています。ただし、衝動買いには注意。本当に必要なものかどうか、一呼吸おいて判断しましょう。", "今日は「投資」の意識が大切です。お金だけでなく、時間や労力を未来の自分のために使うことで、豊かさの種が育ちます。"],
+    ["金星とジュピターのコンビがあなたに幸運をもたらしています。思い切った行動が吉。ただし計画は慎重に。", "節約よりも創造的に収入を考える日。スキルアップや副業のアイデアを練ってみましょう。"],
+    ["豊かさへの扉が少し開いています。チャンスは小さな形でやってきます。見逃さないように目を向けて。", "今日は感謝の気持ちがお金の流れを良くします。手元にあるものを大切にすることで、さらに豊かさが引き寄せられます。"],
+  ],
+  健康: [
+    ["体と心のバランスを整える星が輝いています。今日は無理をせず、自分のペースで過ごしましょう。十分な睡眠と水分が鍵です。", "自然のリズムに合わせることが今日のテーマ。散歩や軽い運動で体を動かすと、心も軽くなるでしょう。"],
+    ["ストレスを手放す日です。深呼吸を意識的に。緊張している部分があれば、ゆっくりほぐしてあげて。", "食事と休息のバランスに気を配る日。体が発するサインを無視しないで。小さな不調も早めにケアを。"],
+    ["今日は心の健康に注目を。好きな音楽を聴いたり、心地よい空間で過ごす時間を作りましょう。精神的な充実が体の活力を生みます。", "月の力があなたの回復力を高めています。疲れを感じたら無理せず休んで。充電する時間も大切な活動のひとつです。"],
+  ],
+};
+
+// ========== 状態 ==========
+let selectedSign = null;
+let selectedCat = "総合";
+
+// ========== 星空生成 ==========
+function createStars() {
+  const container = document.getElementById('stars');
+  for (let i = 0; i < 120; i++) {
+    const star = document.createElement('div');
+    star.className = 'star';
+    const size = Math.random() * 2.5 + 0.5;
+    star.style.cssText = `
+      width: ${size}px; height: ${size}px;
+      top: ${Math.random() * 100}%;
+      left: ${Math.random() * 100}%;
+      --dur: ${Math.random() * 3 + 2}s;
+      animation-delay: ${Math.random() * 4}s;
+    `;
+    container.appendChild(star);
+  }
+}
+
+// ========== 星座ボタン生成 ==========
+function buildSignGrid() {
+  const grid = document.getElementById('signGrid');
+  SIGNS.forEach((s, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'sign-btn';
+    btn.innerHTML = `
+      <span class="symbol">${s.symbol}</span>
+      <span class="name">${s.name}</span>
+      <span class="date-range">${s.dates}</span>
+    `;
+    btn.onclick = () => selectSign(i, btn);
+    grid.appendChild(btn);
+  });
+}
+
+function selectSign(i, btn) {
+  document.querySelectorAll('.sign-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  selectedSign = SIGNS[i];
+}
+
+// ========== カテゴリ ==========
+document.getElementById('categoryRow').addEventListener('click', e => {
+  const btn = e.target.closest('.cat-btn');
+  if (!btn) return;
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  selectedCat = btn.dataset.cat;
+});
+
+// ========== 占い ==========
+function rand(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function randInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function getFortune() {
+  if (!selectedSign) {
+    alert('星座を選んでください');
+    return;
+  }
+
+  const btn = document.getElementById('fortuneBtn');
+  const loading = document.getElementById('loading');
+  const card = document.getElementById('resultCard');
+
+  btn.disabled = true;
+  card.classList.remove('show');
+  loading.classList.add('show');
+
+  setTimeout(() => {
+    loading.classList.remove('show');
+    btn.disabled = false;
+    showResult();
+  }, 1800);
+}
+
+function showResult() {
+  const s = selectedSign;
+  const card = document.getElementById('resultCard');
+
+  // ヘッダー
+  document.getElementById('resSymbol').textContent = s.symbol;
+  document.getElementById('resName').textContent = s.name;
+  document.getElementById('resDate').textContent = `${s.dates} ／ ${s.element}のサイン`;
+
+  // ラッキー情報
+  const luckyColor = rand(LUCKY_COLORS);
+  const luckyItem = rand(LUCKY_ITEMS);
+  const luckyNumber = rand(LUCKY_NUMBERS);
+  const luckyDir = rand(["北", "南", "東", "西", "北東", "南西"]);
+  document.getElementById('luckyRow').innerHTML = `
+    <div class="lucky-item">
+      <div class="label">ラッキーカラー</div>
+      <div class="value">${luckyColor}</div>
+    </div>
+    <div class="lucky-item">
+      <div class="label">ラッキーナンバー</div>
+      <div class="value">${luckyNumber}</div>
+    </div>
+    <div class="lucky-item">
+      <div class="label">ラッキーアイテム</div>
+      <div class="value">${luckyItem}</div>
+    </div>
+    <div class="lucky-item">
+      <div class="label">吉方位</div>
+      <div class="value">${luckyDir}</div>
+    </div>
+  `;
+
+  // スコア
+  const cats = ["総合運", "恋愛運", "仕事運", "金運", "健康運"];
+  const colors = ["#c8a8f8", "#ff88aa", "#88aaff", "#ffcc44", "#88dd88"];
+  const scoresDiv = document.getElementById('scoresDiv');
+  scoresDiv.innerHTML = '';
+  cats.forEach((label, i) => {
+    const score = randInt(40, 100);
+    const div = document.createElement('div');
+    div.className = 'score-row';
+    div.innerHTML = `
+      <div class="score-label">${label}</div>
+      <div class="score-bar-wrap">
+        <div class="score-bar" style="width:0%; background:${colors[i]}" data-w="${score}%"></div>
+      </div>
+      <div class="score-num">${score}</div>
+    `;
+    scoresDiv.appendChild(div);
+  });
+
+  // 本文
+  const texts = FORTUNES[selectedCat];
+  const group = rand(texts);
+  const text = rand(group);
+  document.getElementById('fortuneText').textContent = text;
+
+  card.classList.add('show');
+
+  // バーアニメーション（display変更後に確実に2フレーム待ってからtransitionを起動）
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      document.querySelectorAll('.score-bar').forEach(bar => {
+        bar.style.width = bar.dataset.w;
+      });
+    });
+  });
+
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ========== 初期化 ==========
+createStars();
+buildSignGrid();
+</script>
+</body>
+</html>
